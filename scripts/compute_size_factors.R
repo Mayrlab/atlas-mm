@@ -4,24 +4,22 @@ library(SingleCellExperiment)
 library(tidyverse)
 library(Matrix)
 library(scran)
-library(BiocParallel)
 
 if (interactive()) {
     args <- c("data/sce/merged.genes.raw.rds",
-              "0.95", "1.05", "200000", '2',
+              "0.95", "1.05", "200000",
               "/scratch/fanslerm/merged.capture.efficiency.centered.tsv.gz")
 } else {
     args = commandArgs(trailingOnly=TRUE)
-    if (length(args) != 6) {
-        stop("Incorrect number of arguments!\nUsage:\n> collapse_sce_txs.R <sceRDS> <minSizeFactor> <maxSizeFactor> <medianmRNACount> <ncores> <outFile>\n")
+    if (length(args) != 5) {
+        stop("Incorrect number of arguments!\nUsage:\n> collapse_sce_txs.R <sceRDS> <minSizeFactor> <maxSizeFactor> <medianmRNACount> <outFile>\n")
     }
 }
 arg.sceRDS  <- args[1]
 arg.minSF   <- as.numeric(args[2])
 arg.maxSF   <- as.numeric(args[3])
 arg.mRNA    <- as.numeric(args[4])
-arg.cores   <- as.integer(args[5])
-arg.outFile <- args[6]
+arg.outFile <- args[5]
 
 ## Load SCE
 sce <- readRDS(arg.sceRDS)
@@ -42,8 +40,7 @@ idx.min.genes <- which(rowMeans(counts(sce)) > 0.1)
 
 ## Compute size factors based on cell types
 sizeFactors(sce) <- counts(sce[idx.min.genes,]) %>%
-    computeSumFactors(clusters=paste(sce$tissue, sce$cell_type, sep='.'),
-                      BPPARAM=MulticoreParam(arg.cores))
+    computeSumFactors(clusters=paste(sce$tissue, sce$cluster, sep='.'))
                       
 df <- colData(sce) %>%
     as.data.frame() %>%

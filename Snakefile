@@ -11,7 +11,8 @@ os.makedirs(config["tmp_dir"], exist_ok=True)
 rule all:
     input:
         expand("data/sce/merged.{level}.raw.rds", level=['genes', 'txs']),
-        "data/scran/merged.size_factors.tsv.gz"
+        "data/scran/merged.size_factors.tsv.gz",
+        "data/utrs/gene-utr-metadata-lengths.tsv"
 
 
 rule merge_sces:
@@ -43,12 +44,53 @@ rule compute_size_factors:
         minSF=0.95,
         maxSF=1.05,
         mRNACount=200000
-    threads: 8
     resources:
-        mem=8
+        mem=32
     conda:
         "envs/r36-scran.yaml"
     shell:
         """
-        {input.script} {input.sce} {params.minSF} {params.maxSF} {params.mRNACount} {threads} {output}
+        {input.script} {input.sce} {params.minSF} {params.maxSF} {params.mRNACount} {output}
         """
+
+rule generate_utr_metadata:
+    input:
+        sce="data/sce/merged.txs.raw.rds",
+        ipa=config['utromeIPA'],
+        script="scripts/generate_utr_metadata.R"
+    output:
+        ncells="data/utrs/ncells-genes.tsv",
+        utr="data/utrs/utr-metadata.tsv"
+    params:
+        minCells=50
+    resources:
+        mem=32
+    conda:
+        "envs/r36-sce.yaml"
+    shell:
+        """
+        {input.script} {input.sce} {input.ipa} {params.minCells} {output.ncells} {output.utr}
+        """
+
+rule generate_gene_utr_metadata:
+    input:
+        utrome=config['utromeGTF'],
+        gencode=config['gencodeValidEndsGTF'],
+        utrs="data/utrs/utr-metadata.tsv",
+        script="scripts/generate_gene_utr_metadata.R"
+    output:
+        utr="data/utrs/utr-metadata-lengths.tsv",
+        genes="data/utrs/gene-utr-metadata-lengths.tsv"
+    resources:
+        mem=4
+    threads: 16
+    conda:
+        "envs/r36-plyranges.yaml"
+    shell:
+        """
+        {input.script} {input.utrome} {input.gencode} {input.utrs} {threads} {output.utr} {output.genes}
+        """
+
+
+
+        
