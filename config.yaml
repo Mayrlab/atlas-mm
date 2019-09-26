@@ -1,0 +1,30 @@
+tmp_dir:
+  /scratch/fanslerm
+
+gencodeBED:
+  "/data/mayrc/db/mm10/gencode.vM21.annotation.bed"
+
+chromSizes:
+  "/data/mayrc/db/mm10/mm10.chrom.sizes"
+
+utromeGTF:
+  "/data/mayrc/data/mca/gff/adult.utrome.e3.t200.f0.999.w500.gtf"
+
+utromeKDX:
+  "/data/mayrc/data/mca/kallisto/adult.utrome.e3.t200.f0.999.w500.kdx"
+
+utromeTx2Gene:
+  "/data/mayrc/data/mca/gff/adult.utrome.tx2gene.e3.t200.f0.999.w500.tsv"
+
+utromeMerge:
+  "/data/mayrc/data/mca/gff/adult.utrome.e3.t200.f0.999.w500.merge.tsv"
+  
+sce:
+  txs:
+    tmuris: "/data/mayrc/data/tmuris/sce/utrome/TabulaMuris.txs.annot.rds"
+    brain: "/data/mayrc/data/ximerakis19/sce/utrome/brain.aging.txs.annot.rds"
+    hspcs: "/data/mayrc/data/mm-hspc-44k/sce/utrome/HSPCs.WT.txs.annot.rds"
+  genes:
+    tmuris: "/data/mayrc/data/tmuris/sce/utrome/TabulaMuris.genes.annot.rds"
+    brain: "/data/mayrc/data/ximerakis19/sce/utrome/brain.aging.genes.annot.rds"
+    hspcs: "/data/mayrc/data/mm-hspc-44k/sce/utrome/HSPCs.WT.genes.annot.rds"
