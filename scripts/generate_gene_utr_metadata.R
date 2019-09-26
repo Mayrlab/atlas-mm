@@ -26,7 +26,9 @@ extractRefTx <- function (tx) {
 }
 
 extractUTR3 <- function (gr) {
-    stop.gr <- gr %>% filter(type == 'stop_codon')
+    stop.gr <- gr %>%
+        filter(type == 'stop_codon') %>%
+        filter(exon_number == min(exon_number))                         # use first when split
     utrs.gr <- gr %>% filter(type == 'UTR')
     bind_ranges(utrs.gr %>% filter_by_overlaps(stop.gr),                # exon with STOP codon
                 utrs.gr %>% filter(exon_number > stop.gr$exon_number))  # downstream exons
