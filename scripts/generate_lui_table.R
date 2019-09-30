@@ -42,6 +42,7 @@ arg.outNCells <- args[6]
 
 ## Load UTR Counts
 sce <- readRDS(arg.sceRDS)
+sce <- sce[, !is.na(sce$size_factor.merged)]
 
 ## Known blacklist
 genes.blacklist <- read_lines(arg.blacklist)
@@ -56,29 +57,32 @@ df.intersections <- read_tsv(arg.overlaps, col_names=c("tx1", "tx2"), col_types=
 
 df.multiutrs <- rowData(sce) %>%
     as.data.frame() %>%
-    filter(utr.count.no_ipa == 2,
+    filter(utr.count.no_ipa >= 2,
            is_ipa == FALSE,
            gene.ncelltypes.cells50.no_ipa >= 2,
            (utr.pct.no_ipa >= 0.1) | (utr.ncelltypes.no_ipa > 0)) %>%
     filter(!(gene_symbol %in% genes.blacklist)) %>%
+    mutate(utr_position=as.integer(str_extract(transcript_name, "[0-9]+$"))) %>%
     group_by(gene_symbol) %>%
+    mutate(is_LU=(utr_length == max(utr_length, na.rm=TRUE))) %>%
     mutate(overlapping={
         df.intersections %>%
-            filter(tx1 == transcript_name[1],
-                   tx2 == transcript_name[2]) %>%
+            filter(tx1 == transcript_name[is_LU],
+                   tx2 %in% transcript_name[!is_LU]) %>%
             nrow() > 0}) %>%
     ungroup() %>%
-    mutate(utr.position=as.integer(str_extract(transcript_name, "[0-9]+$"))) %>%
-    arrange(gene_symbol, utr.position)
+    arrange(gene_symbol, utr_position)
 
 cat(sprintf("Removing **%d genes** due to overlapping transcripts.\n",
-(df.multiutrs %>% filter(overlapping) %>% nrow())/2))
+(df.multiutrs %>% filter(overlapping) %>% pull(gene_symbol) %>% unique() %>% length())))
 
 df.multiutrs %<>% filter(!overlapping)
 
-idx.utr2 <- df.multiutrs %>% pull(transcript_name)
+cat(sprintf("Considering **%d genes**.\n",
+            df.multiutrs %>% pull(gene_symbol) %>% unique() %>% length()))
 
-cat(sprintf("Considering **%d genes**.\n", length(idx.utr2)/2))
+idx.utrs <- df.multiutrs %>% pull(transcript_name)
+
 
 ################################################################################
 ## DESIGN MATRICES 
@@ -96,10 +100,11 @@ M.celltypes <- colData(sce)[,c('tissue', 'cell_type', 'age')] %>%
     t()
 
 ## M: (genes) x (utrs)
-M.genes <- rowData(sce[idx.utr2,])$gene_symbol %>% fac2sparse()
+M.genes <- rowData(sce[idx.utrs,])$gene_symbol %>% fac2sparse()
+colnames(M.genes) <- idx.utrs
 
 ## M: (distal UTRs) x (utrs)
-M.LU <- sparseMatrix(i=1:dim(M.genes)[1], 2*(1:dim(M.genes)[1]), x=1, dims=dim(M.genes), dimnames=dimnames(M.genes))
+M.LU <- M.genes %*% Diagonal(ncol(M.genes), df.multiutrs$is_LU)
 
 
 ################################################################################
@@ -107,13 +112,14 @@ M.LU <- sparseMatrix(i=1:dim(M.genes)[1], 2*(1:dim(M.genes)[1]), x=1, dims=dim(M
 ################################################################################
 
 ## transcripts counts
-cts.celltypes <- counts(sce[idx.utr2,]) %*% (M.celltypes / sce$size_factor.merged)
+cts.celltypes <- counts(sce[idx.utrs,]) %*% (M.celltypes / sce$size_factor.merged)
 
+    
 ## mean gene counts
 mu.gene.celltypes <- t(t(M.genes %*% cts.celltypes) / colSums(M.celltypes))
 
 ## number of cells in each cell type expressing a given gene
-expr.gene.celltypes <- ((M.genes %*% counts(sce[idx.utr2,])) > 0) %*% M.celltypes
+expr.gene.celltypes <- ((M.genes %*% counts(sce[idx.utrs,])) > 0) %*% M.celltypes
 
 ## Point Estimates for LUI for all (gene) x (cell type)
 lui.point <- (M.LU %*% cts.celltypes) / (M.genes %*% cts.celltypes)
@@ -128,12 +134,13 @@ lui.point[which(expr.gene.celltypes < arg.minCells)] <- NA
 
 df.lui <- lui.point %>%
     as.matrix() %>% as.data.frame() %>%
-    mutate(gene=rownames(.)) %>%
-    select(gene, everything())
+    rownames_to_column('gene') %>%
+    mutate(n_utrs=rowSums(M.genes)) %>%
+    select(gene, n_utrs, everything())
 
 df.gene.expr <- mu.gene.celltypes %>%
     as.matrix() %>% as.data.frame() %>%
-    mutate(gene=rownames(.)) %>%
+    rownames_to_column('gene') %>%
     select(gene, everything())
 
 df.full <- df.lui %>%
@@ -152,6 +159,6 @@ write_tsv(df.full, arg.outLUI)
 expr.gene.celltypes %>%
     as.matrix() %>%
     as.data.frame() %>%
-    mutate(gene=rownames(.)) %>%
+    rownames_to_column('gene') %>%
     select(gene, everything()) %>%
     write_tsv(arg.outNCells)
