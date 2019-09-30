@@ -14,7 +14,8 @@ rule all:
     input:
         expand("data/sce/{dataset}.{level}.full_annot.rds",
                dataset=['tmuris', 'brain', 'hspcs', 'merged'],
-               level=['genes', 'txs'])
+               level=['genes', 'txs']),
+        "data/lui/merged-lui-expr-pointestimates.tsv"
 
 rule merge_sces:
     input:
@@ -128,3 +129,22 @@ rule annotate_sce_all:
         {input.script} {input.sce} {input.utrs} {input.size_factors} {output}
         """
 
+rule generate_lui_table:
+    input:
+        script="scripts/generate_lui_table.R",
+        sce="data/sce/merged.txs.full_annot.rds",
+        blacklist=config["utromeBlacklist"],
+        overlaps=config["utromeOverlaps"]
+    params:
+        minCells=50
+    output:
+        lui="data/lui/merged-lui-expr-pointestimates.tsv",
+        ncells="data/lui/merged-ncells-expr.tsv"
+    conda:
+        "envs/r36-sce.yaml"
+    resources:
+        mem=16
+    shell:
+        """
+        {input.script} {input.sce} {input.blacklist} {input.overlaps} {params.minCells} {output.lui} {output.ncells}
+        """
