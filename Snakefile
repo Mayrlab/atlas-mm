@@ -1,19 +1,20 @@
 configfile: "config.yaml"
 
-import pandas as pd
 import os
-from glob import glob
+
 
 # make sure the tmp directory exists
 os.makedirs(config["tmp_dir"], exist_ok=True)
 
+# only use datasets we have in the config
+datasets_selector = "(" + "|".join(config['sce']['txs'].keys()) + ")"
+
 
 rule all:
     input:
-        expand("data/sce/merged.{level}.raw.rds", level=['genes', 'txs']),
-        "data/scran/merged.size_factors.tsv.gz",
-        "data/utrs/gene-utr-metadata-lengths.tsv"
-
+        expand("data/sce/{dataset}.{level}.full_annot.rds",
+               dataset=['tmuris', 'brain', 'hspcs', 'merged'],
+               level=['genes', 'txs'])
 
 rule merge_sces:
     input:
@@ -79,8 +80,8 @@ rule generate_gene_utr_metadata:
         utrs="data/utrs/utr-metadata.tsv",
         script="scripts/generate_gene_utr_metadata.R"
     output:
-        utr="data/utrs/utr-metadata-lengths.tsv",
-        genes="data/utrs/gene-utr-metadata-lengths.tsv"
+        txs="data/utrs/txs-utr-metadata-lengths.tsv",
+        genes="data/utrs/genes-utr-metadata-lengths.tsv"
     resources:
         mem=4
     threads: 16
@@ -88,9 +89,42 @@ rule generate_gene_utr_metadata:
         "envs/r36-plyranges.yaml"
     shell:
         """
-        {input.script} {input.utrome} {input.gencode} {input.utrs} {threads} {output.utr} {output.genes}
+        {input.script} {input.utrome} {input.gencode} {input.utrs} {threads} {output.txs} {output.genes}
         """
 
+rule annotate_sce:
+    input:
+        sce=lambda wcs: config['sce'][wcs.level][wcs.dataset],
+        utrs="data/utrs/{level}-utr-metadata-lengths.tsv",
+        size_factors="data/scran/merged.size_factors.tsv.gz",
+        script="scripts/annotate_{level}_sce.R"
+    output:
+        "data/sce/{dataset}.{level}.full_annot.rds"
+    wildcard_constraints:
+        dataset=datasets_selector
+    resources:
+        mem=16
+    conda:
+        "envs/r36-sce.yaml"
+    shell:
+        """
+        {input.script} {input.sce} {input.utrs} {input.size_factors} {output}
+        """
 
+rule annotate_sce_all:
+    input:
+        sce=lambda wcs: ".".join(["data/sce/merged", wcs.level, "raw.rds"]),
+        utrs="data/utrs/{level}-utr-metadata-lengths.tsv",
+        size_factors="data/scran/merged.size_factors.tsv.gz",
+        script="scripts/annotate_{level}_sce_all.R"
+    output:
+        "data/sce/merged.{level}.full_annot.rds"
+    resources:
+        mem=16
+    conda:
+        "envs/r36-sce.yaml"
+    shell:
+        """
+        {input.script} {input.sce} {input.utrs} {input.size_factors} {output}
+        """
 
-        
