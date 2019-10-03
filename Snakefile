@@ -16,7 +16,8 @@ rule all:
                dataset=['tmuris', 'brain', 'hspcs', 'merged'],
                level=['genes', 'txs']),
         "data/lui/merged-lui-expr-pointestimates.tsv",
-        "data/lui/merged-gene-expr-pointestimates.tsv.gz"
+        "data/lui/merged-gene-expr-pointestimates.tsv.gz",
+        "data/utrs/df-multiutrs.tsv"
 
 rule merge_sces:
     input:
@@ -164,4 +165,19 @@ rule generate_gene_table:
     shell:
         """
         {input.script} {input.sce} {input.blacklist} {output}
+        """
+
+rule export_multiutrs:
+    input:
+        script="scripts/export_multiutrs.R",
+        utrs="data/utrs/txs-utr-metadata-lengths.tsv",
+        blacklist=config["utromeBlacklist"],
+        overlaps=config["utromeOverlaps"]
+    output:
+        "data/utrs/df-multiutrs.tsv"
+    conda:
+        "envs/r36-sce.yaml"
+    shell:
+        """
+        {input.script} {input.utrs} {input.blacklist} {input.overlaps} {output}
         """
