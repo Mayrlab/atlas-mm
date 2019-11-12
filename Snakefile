@@ -181,3 +181,41 @@ rule export_multiutrs:
         """
         {input.script} {input.utrs} {input.blacklist} {input.overlaps} {output}
         """
+
+rule export_multiutr_genes:
+    input:
+        script="scripts/export_multiutr_genes.R",
+        multiutrs="data/utrs/df-multiutrs.tsv"
+    output:
+        ens="data/utrs/genes-multiutr-ensembl.txt",
+        sym="data/utrs/genes-multiutr-symbols.txt",
+        mgi="data/utrs/genes-multiutr-mgi.txt"
+    conda:
+        "envs/r36-annot-mm.yaml"
+    resources:
+        mem=4
+    shell:
+        """
+        {input.script} {input.multiutrs} {output}
+        """
+
+rule genewalk_multiutr_genes:
+    input:
+        "data/utrs/genes-multiutr-mgi.txt"
+    output:
+        "data/genewalk/multiutrs/genewalk_results.csv"
+    params:
+        base_dir=config['tmp_dir'] + '/genewalk',
+        project="multiutr-atlas"
+    conda:
+        "envs/genewalk.yaml"
+    resources:
+        mem=6
+    threads: 16
+    shell:
+        """
+        genewalk --nproc {threads} --project {params.project} --genes {input} --id_type mgi_id --base_folder {params.base_dir}
+        mkdir -p data/genewalk/{params.project}
+        cp {params.base_dir}/{params.project}/* data/genewalk/multiutrs
+        rm -rf {params.base_dir}/{params.project}
+        """
