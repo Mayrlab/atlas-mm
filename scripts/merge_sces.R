@@ -3,6 +3,7 @@
 library(SingleCellExperiment)
 library(S4Vectors)
 library(tidyverse)
+library(magrittr)
 
 if (interactive()) {
     args <- c("/data/mayrc/data/tmuris/sce/utrome/TabulaMuris.genes.annot.rds",
@@ -42,27 +43,32 @@ colData(sce.tmuris) %<>%
     as.data.frame() %>%
     dplyr::rename(cell_type=cell_ontology_class, cluster=cluster.ids, sample=channel) %>%
     mutate(age='young') %>%
-    select('cell', 'tissue', 'cell_type', 'cluster', 'sample', 'age') %>%
+    select('cell', 'tissue', 'cell_type', 'cluster', 'sample', 'age',
+           'phase', 'G1', 'S', 'G2M', 'G1.norm', 'S.norm', 'G2M.norm') %>%
     DataFrame()
 
 ## Brain
 colData(sce.brain) %<>%
     as.data.frame() %>%
-    select('cell', 'cell_type', 'sample_id', 'age_group') %>%
+    select('cell', 'cell_type', 'sample_id', 'age_group',
+           'phase', 'G1', 'S', 'G2M', 'G1.norm', 'S.norm', 'G2M.norm') %>%
     dplyr::rename(sample=sample_id, age=age_group) %>%
     mutate(tissue='Brain',
            cluster=as.integer(as.factor(cell_type))) %>%
-    select('cell', 'tissue', 'cell_type', 'cluster', 'sample', 'age') %>%
+    select('cell', 'tissue', 'cell_type', 'cluster', 'sample', 'age',
+           'phase', 'G1', 'S', 'G2M', 'G1.norm', 'S.norm', 'G2M.norm') %>%
     DataFrame()
 
 ## HSPCs
 colData(sce.hspcs) %<>%
     as.data.frame() %>%
-    select('cell', 'clusters', 'sample', 'louvain_R') %>%
+    select('cell', 'clusters', 'sample', 'louvain_R',
+           'phase', 'G1', 'S', 'G2M', 'G1.norm', 'S.norm', 'G2M.norm') %>%
     dplyr::rename(cell_type=clusters, cluster=louvain_R) %>%
     mutate(tissue='Bone Marrow (LSK,LK)',
            age='young') %>%
-    select('cell', 'tissue', 'cell_type', 'cluster', 'sample', 'age') %>%
+    select('cell', 'tissue', 'cell_type', 'cluster', 'sample', 'age',
+           'phase', 'G1', 'S', 'G2M', 'G1.norm', 'S.norm', 'G2M.norm') %>%
     DataFrame()
 
 sce <- cbind(sce.tmuris, sce.brain, sce.hspcs)
