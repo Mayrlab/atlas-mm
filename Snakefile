@@ -2,7 +2,6 @@ configfile: "config.yaml"
 
 import os
 
-
 # make sure the tmp directory exists
 os.makedirs(config["tmp_dir"], exist_ok=True)
 
@@ -32,7 +31,7 @@ rule merge_sces:
     conda:
         "envs/r36-sce.yaml"
     resources:
-        mem=12
+        mem_mb=12000
     shell:
         """
         {input.script} {input.tmuris} {input.brain} {input.hspcs} {output}
@@ -49,7 +48,7 @@ rule compute_size_factors:
         maxSF=1.05,
         mRNACount=200000
     resources:
-        mem=16
+        mem_mb=16000
     conda:
         "envs/r36-scran.yaml"
     shell:
@@ -68,7 +67,7 @@ rule generate_utr_metadata:
     params:
         minCells=50
     resources:
-        mem=12
+        mem_mb=12000
     conda:
         "envs/r36-sce.yaml"
     shell:
@@ -86,7 +85,7 @@ rule generate_gene_utr_metadata:
         txs="data/utrs/txs-utr-metadata-lengths.tsv",
         genes="data/utrs/genes-utr-metadata-lengths.tsv"
     resources:
-        mem=1
+        mem_mb=1000
     threads: 20
     conda:
         "envs/r36-plyranges.yaml"
@@ -106,7 +105,7 @@ rule annotate_sce:
     wildcard_constraints:
         dataset=datasets_selector
     resources:
-        mem=4
+        mem_mb=4000
     conda:
         "envs/r36-sce.yaml"
     shell:
@@ -123,7 +122,7 @@ rule annotate_sce_all:
     output:
         "data/sce/merged.{level}.full_annot.rds"
     resources:
-        mem=4
+        mem_mb=4000
     conda:
         "envs/r36-sce.yaml"
     shell:
@@ -145,7 +144,7 @@ rule generate_lui_table:
     conda:
         "envs/r36-sce.yaml"
     resources:
-        mem=10
+        mem_mb=10000
     shell:
         """
         {input.script} {input.sce} {input.blacklist} {input.overlaps} {params.minCells} {output.lui} {output.ncells}
@@ -161,7 +160,7 @@ rule generate_gene_table:
     conda:
         "envs/r36-sce.yaml"
     resources:
-        mem=10
+        mem_mb=10000
     shell:
         """
         {input.script} {input.sce} {input.blacklist} {output}
@@ -178,7 +177,7 @@ rule export_multiutrs:
     conda:
         "envs/r36-sce.yaml"
     resources:
-        mem=4
+        mem_mb=4000
     shell:
         """
         {input.script} {input.utrs} {input.blacklist} {input.overlaps} {output}
@@ -195,7 +194,7 @@ rule export_multiutr_genes:
     conda:
         "envs/r36-annot-mm.yaml"
     resources:
-        mem=4
+        mem_mb=4000
     shell:
         """
         {input.script} {input.multiutrs} {output}
@@ -212,7 +211,7 @@ rule genewalk_multiutr_genes:
     conda:
         "envs/genewalk.yaml"
     resources:
-        mem=2
+        mem_mb=2000
     threads: 16
     shell:
         """
