@@ -11,45 +11,30 @@ library(S4Vectors)
 library(Matrix)
 library(matrixStats)
 
-
 ################################################################################
-## Load Arguments
+## Mock Arguments
 ################################################################################
 
 if (interactive()) {
-    args <- c("data/sce/merged.txs.full_annot.rds",
-              "data/blacklist.utrome.txt",
-              "data/utrs/adult.utrome.e3.t200.f0.999.w500.overlaps.tsv",
-              "50",
-              "/scratch/fanslerm/TM.lui.tsv",
-              "/scratch/fanslerm/TM.ncells.tsv")
-} else {
-    args = commandArgs(trailingOnly=TRUE)
-    if (length(args) != 6) {
-        stop("Incorrect number of arguments!\nUsage:\n> generate_lui_table.R <sceRDS> <blacklist> <overlaps> <minCells> <outLUI> <outNCells>\n")
-    }
+    Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
+    snakemake <- Snakemake(
+        input=list(sce="data/sce/merged.txs.full_annot.Rds",
+                   blacklist="data/blacklist.utrome.txt"),
+        output=list(lui="/fscratch/fanslerm/merged_lui_expr_pointestimates.tsv",
+                    n_cells="/fscratch/fanslerm/merged_ncells_expr.tsv"),
+        params=list(min_cells=50))
 }
-arg.sceRDS    <- args[1]
-arg.blacklist <- args[2]
-arg.overlaps  <- args[3]
-arg.minCells  <- as.integer(args[4])
-arg.outLUI    <- args[5]
-arg.outNCells <- args[6]
 
 ################################################################################
 ## Load Data
 ################################################################################
 
 ## Load UTR Counts
-sce <- readRDS(arg.sceRDS)
+sce <- readRDS(snakemake@input$sce)
 sce <- sce[, !is.na(sce$size_factor.merged)]
 
 ## Known blacklist
-genes.blacklist <- read_lines(arg.blacklist)
-
-## Load UTR intersections for blacklisting
-df.intersections <- read_tsv(arg.overlaps, col_names=c("tx1", "tx2"), col_types="cc")
-
+genes.blacklist <- read_lines(snakemake@input$blacklist)
 
 ################################################################################
 ## Identify Multiutrs
@@ -62,27 +47,16 @@ df.multiutrs <- rowData(sce) %>%
            gene.ncelltypes.cells50.no_ipa >= 2,
            (utr.pct.no_ipa >= 0.1) | (utr.ncelltypes.no_ipa > 0)) %>%
     filter(!(gene_symbol %in% genes.blacklist)) %>%
-    mutate(utr_position=as.integer(str_extract(transcript_name, "[0-9]+$"))) %>%
+    mutate(utr_position=as.integer(str_extract(transcript_id, "[0-9]+$"))) %>%
     group_by(gene_symbol) %>%
     mutate(is_LU=(utr_length == max(utr_length, na.rm=TRUE))) %>%
-    mutate(overlapping={
-        df.intersections %>%
-            filter(tx1 == transcript_name[is_LU],
-                   tx2 %in% transcript_name[!is_LU]) %>%
-            nrow() > 0}) %>%
     ungroup() %>%
     arrange(gene_symbol, utr_position)
-
-cat(sprintf("Removing **%d genes** due to overlapping transcripts.\n",
-(df.multiutrs %>% filter(overlapping) %>% pull(gene_symbol) %>% unique() %>% length())))
-
-df.multiutrs %<>% filter(!overlapping)
 
 cat(sprintf("Considering **%d genes**.\n",
             df.multiutrs %>% pull(gene_symbol) %>% unique() %>% length()))
 
-idx.utrs <- df.multiutrs %>% pull(transcript_name)
-
+idx.utrs <- df.multiutrs %>% pull(transcript_id)
 
 ################################################################################
 ## DESIGN MATRICES 
@@ -113,7 +87,6 @@ M.LU <- M.genes %*% Diagonal(ncol(M.genes), df.multiutrs$is_LU)
 
 ## transcripts counts
 cts.celltypes <- counts(sce[idx.utrs,]) %*% (M.celltypes / sce$size_factor.merged)
-
     
 ## mean gene counts
 mu.gene.celltypes <- t(t(M.genes %*% cts.celltypes) / colSums(M.celltypes))
@@ -125,8 +98,7 @@ expr.gene.celltypes <- ((M.genes %*% counts(sce[idx.utrs,])) > 0) %*% M.celltype
 lui.point <- (M.LU %*% cts.celltypes) / (M.genes %*% cts.celltypes)
 
 ## Mask all gene-cell combinations
-lui.point[which(expr.gene.celltypes < arg.minCells)] <- NA
-
+lui.point[which(expr.gene.celltypes < snakemake@params$min_cells)] <- NA
 
 ################################################################################
 ## Wide table 
@@ -146,19 +118,15 @@ df.gene.expr <- mu.gene.celltypes %>%
 df.full <- df.lui %>%
     left_join(df.gene.expr, by='gene', suffix=c(" LUI", " Mean Expression"))
 
-
 ################################################################################
 ## Export
 ################################################################################
 
-write_tsv(df.full, arg.outLUI)
-
-## data.frame(celltype=colnames(M.celltypes), cells=colSums(M.celltypes)) %>%
-##     write_tsv("data/tmuris-cells-per-celltype.tsv")
+write_tsv(df.full, snakemake@output$lui)
 
 expr.gene.celltypes %>%
     as.matrix() %>%
     as.data.frame() %>%
     rownames_to_column('gene') %>%
     select(gene, everything()) %>%
-    write_tsv(arg.outNCells)
+    write_tsv(snakemake@output$n_cells)

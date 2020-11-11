@@ -7,43 +7,36 @@
 library(SingleCellExperiment)
 library(S4Vectors)
 library(tidyverse)
-
+library(magrittr)
 
 ################################################################################
-## Load Arguments
+## Mock Arguments
 ################################################################################
 
 if (interactive()) {
-    args <- c("data/sce/merged.txs.raw.rds",
-              "data/utrs/txs-utr-metadata-lengths.tsv",
-              "data/scran/merged.size_factors.tsv.gz",
-              "/scratch/fanslerm/merged.txs.full_annot.rds")
-} else {
-    args = commandArgs(trailingOnly=TRUE)
-    if (length(args) != 4) {
-        stop("Incorrect number of arguments!\nUsage:\n> annotate_txs_sce_all.R <sceRDS> <utrsFile> <sizesFile> <outFile>\n")
-    }
+    Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
+    snakemake <- Snakemake(
+        input=list(sce="data/sce/merged.txs.raw.Rds",
+                   utrs="data/utrs/txs_utr_metadata_lengths.tsv",
+                   size_factors="data/scran/merged.size_factors.tsv.gz"),
+        output=list(sce="/fscratch/fanslerm/merged.txs.full_annot.Rds"),
+        params=list())
 }
-arg.sceRDS <- args[1]
-arg.utrFile <- args[2]
-arg.sizeFactors <- args[3]
-arg.outFile <- args[4]
-
 
 ################################################################################
 ## Load Data
 ################################################################################
 
-sce <- readRDS(arg.sceRDS)
+sce <- readRDS(snakemake@input$sce)
 
-df.utrs <- read_tsv(arg.utrFile, col_types='c_____di__l__d___ii___i_ccil') %>%
+df.utrs <- read_tsv(snakemake@input$utrs, col_types='c____di__l__d___ii___i_ccil') %>%
     dplyr::rename(utr.ncelltypes.no_ipa=utr.ncelltypes.pct10.no_ipa,
                   utr.count.no_ipa=utr.count.pct10.no_ipa,
                   utr.type.no_ipa=utr.type.pct10.no_ipa,
                   improper_utr_length=improper)
 
-df.sizeFactors <- read_tsv(arg.sizeFactors, col_types='cdd') %>%
-    rename_at(vars(-c('cell')), ~ str_c(., '.merged'))
+df.sizeFactors <- read_tsv(snakemake@input$size_factors, col_types='cdd') %>%
+    rename_at(vars(-c('cell_id')), ~ str_c(., '.merged'))
 
 
 ################################################################################
@@ -57,25 +50,23 @@ old.colnames <- colnames(sce)
 rowData(sce) %<>%
     as.data.frame() %>%
     rownames_to_column() %>%
-    dplyr::select(-c("utr.pct", "utr.rank")) %>%
-    left_join(df.utrs, by='transcript_name') %>%
+    left_join(df.utrs, by='transcript_id') %>%
     column_to_rownames() %>%
     DataFrame()
 
 colData(sce) %<>%
     as.data.frame() %>%
-    rownames_to_column() %>%
-    left_join(df.sizeFactors, by="cell") %>%
-    column_to_rownames() %>%
+    mutate(cell_id=rownames(.)) %>%
+    left_join(df.sizeFactors, by="cell_id") %>%
+    set_rownames(.$cell_id) %>%
     DataFrame()
 
 ## Ensure we are not scrambling genes or cells
 stopifnot(all(rownames(sce) == old.rownames))
 stopifnot(all(colnames(sce) == old.colnames))
 
-
 ################################################################################
 ## Export
 ################################################################################
 
-saveRDS(sce, arg.outFile)
+saveRDS(sce, snakemake@output$sce)

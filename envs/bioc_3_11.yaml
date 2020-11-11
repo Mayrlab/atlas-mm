@@ -1,0 +1,14 @@
+name: bioc_3_11
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base=4.0
+  - r-tidyverse=1.3
+  - bioconductor-singlecellexperiment=1.10
+  - bioconductor-plyranges=1.8
+  - bioconductor-genomicfeatures=1.40
+  - bioconductor-scater=1.16
+  - bioconductor-scran=1.16
+  - bioconductor-org.mm.eg.db=3.11

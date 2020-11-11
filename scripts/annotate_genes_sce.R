@@ -7,39 +7,32 @@
 library(SingleCellExperiment)
 library(S4Vectors)
 library(tidyverse)
-
+library(magrittr)
 
 ################################################################################
-## Load Arguments
+## Mock data
 ################################################################################
 
 if (interactive()) {
-    args <- c("data/sce/TabulaMuris.genes.annot.rds",
-              "data/utrs/genes-utr-metadata-lengths.tsv",
-              "data/scran/merged.size_factors.tsv.gz",
-              "/scratch/fanslerm/TM.genes.full_annot.rds")
-} else {
-    args = commandArgs(trailingOnly=TRUE)
-    if (length(args) != 4) {
-        stop("Incorrect number of arguments!\nUsage:\n> annotate_genes_sce.R <sceRDS> <utrsFile> <sizesFile> <outFile>\n")
-    }
+    Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
+    snakemake <- Snakemake(
+        input=list(sce="/data/mayrc/data/tmuris/sce/tmuris.utrome.genes.Rds",
+                   utrs="data/utrs/genes_utr_metadata_lengths.tsv",
+                   size_factors="data/scran/merged.size_factors.tsv.gz"),
+        output=list(sce="/fscratch/fanslerm/tmuris.utrome.txs.full_annot.Rds"),
+        params=list())
 }
-arg.sceRDS <- args[1]
-arg.utrFile <- args[2]
-arg.sizeFactors <- args[3]
-arg.outFile <- args[4]
-
 
 ################################################################################
 ## Load Data
 ################################################################################
 
-sce <- readRDS(arg.sceRDS)
+sce <- readRDS(snakemake@input$sce)
 
-df.utrs <- read_tsv(arg.utrFile, col_types='_ccidcdi')
+df.utrs <- read_tsv(snakemake@input$utrs, col_types='_ccidcdi')
 
-df.sizeFactors <- read_tsv(arg.sizeFactors, col_types='cdd') %>%
-    rename_at(vars(-c('cell')), ~ str_c(., '.merged'))
+df.sizeFactors <- read_tsv(snakemake@input$size_factors, col_types='cdd') %>%
+    rename_at(vars(-c('cell_id')), ~ str_c(., '.merged'))
 
 
 ################################################################################
@@ -51,27 +44,24 @@ old.rownames <- rownames(sce)
 old.colnames <- colnames(sce)
 
 rowData(sce) %<>%
-    as.data.frame() %>%
-    rownames_to_column() %>%
-    select(-one_of(c('utr.count.mca', 'utr.count.tm', 'utr.type.mca', 'utr.type.tm', 'utr.type.matches'))) %>%
+    as_tibble(rownames='gene_id') %>%
     left_join(df.utrs, by='gene_id') %>%
-    column_to_rownames() %>%
-    DataFrame()
+    column_to_rownames('gene_id') %>%
+    DataFrame
 
 colData(sce) %<>%
     as.data.frame() %>%
-    rownames_to_column() %>%
-    left_join(df.sizeFactors, by="cell") %>%
-    column_to_rownames() %>%
+    mutate(cell_id=rownames(.)) %>%
+    left_join(df.sizeFactors, by="cell_id") %>%
+    set_rownames(.$cell_id) %>%
     DataFrame()
 
 ## Ensure we are not scrambling genes or cells
 stopifnot(all(rownames(sce) == old.rownames))
 stopifnot(all(colnames(sce) == old.colnames))
 
-
 ################################################################################
 ## Export
 ################################################################################
 
-saveRDS(sce, arg.outFile)
+saveRDS(sce, snakemake@output$sce)

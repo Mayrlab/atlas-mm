@@ -8,31 +8,25 @@ library(tidyverse)
 library(org.Mm.eg.db)
 
 ################################################################################
-## Load Arguments
+## Mock Arguments
 ################################################################################
 
 if (interactive()) {
-    args <- c("data/utrs/df-multiutrs.tsv",
-              "/scratch/fanslerm/genes-multiutr-ensembl.txt",
-              "/scratch/fanslerm/genes-multiutr-symbols.txt",
-              "/scratch/fanslerm/genes-multiutr-mgi.txt")
-} else {
-    args = commandArgs(trailingOnly=TRUE)
-    if (length(args) != 4) {
-        stop("Incorrect number of arguments!\nUsage:\n> export_multiutr_genes.R <multiutrTSV> <outEnsemble> <outSymbols> <outMGI>\n")
-    }
+    Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
+    snakemake <- Snakemake(
+        input=list(multiutrs="data/utrs/df_multiutrs.tsv"),
+        output=list(ens="/fscratch/fansler/genes_multiutr_ensembl.txt",
+                    sym="/fscratch/fansler/genes_multiutr_symbols.txt",
+                    mgi="/fscratch/fansler/genes_multiutr_mgi.txt"),
+        params=list())
 }
-arg.utrs       <- args[1]
-arg.outEnsembl <- args[2]
-arg.outSymbols <- args[3]
-arg.outMGI     <- args[4]
 
 ################################################################################
 ## Load Data
 ################################################################################
 
 ## Load UTRs
-df.utrs <- read_tsv(arg.utrs)
+df.utrs <- read_tsv(snakemake@input$multiutrs)
 
 ################################################################################
 ## Filter Overlapping Transcripts, Export
@@ -49,12 +43,12 @@ df.genes %>%
     pull(gene_id) %>%
     str_extract("^[^.]+") %>%
     unique() %>%
-    write_lines(arg.outEnsembl)
+    write_lines(snakemake@output$ens)
 
 df.genes %>%
     pull(gene_symbol) %>%
     unique() %>%
-    write_lines(arg.outSymbols)
+    write_lines(snakemake@output$sym)
 
 mgis <- df.genes %>%
     pull(gene_id) %>%
@@ -68,4 +62,4 @@ mgis %>%
     na.omit() %>%
     unique() %>%
     str_extract("[0-9]+$") %>%
-    write_lines(arg.outMGI)
+    write_lines(snakemake@output$mgi)

@@ -6,54 +6,44 @@ library(Matrix)
 library(scran)
 
 if (interactive()) {
-    args <- c("data/sce/merged.genes.raw.rds",
-              "0.95", "1.05", "200000",
-              "/scratch/fanslerm/merged.capture.efficiency.centered.tsv.gz")
-} else {
-    args = commandArgs(trailingOnly=TRUE)
-    if (length(args) != 5) {
-        stop("Incorrect number of arguments!\nUsage:\n> collapse_sce_txs.R <sceRDS> <minSizeFactor> <maxSizeFactor> <medianmRNACount> <outFile>\n")
-    }
+    Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
+    snakemake <- Snakemake(
+        input=list(sce="data/sce/merged.genes.raw.Rds"),
+        output=list(tsv="/fscratch/fanslerm/merged.size_factors.tsv.gz"),
+        params=list(min_sf=0.95, max_sf=1.05, mrna_count=200000))
 }
-arg.sceRDS  <- args[1]
-arg.minSF   <- as.numeric(args[2])
-arg.maxSF   <- as.numeric(args[3])
-arg.mRNA    <- as.numeric(args[4])
-arg.outFile <- args[5]
 
 ## Load SCE
-sce <- readRDS(arg.sceRDS)
+sce <- readRDS(snakemake@input$sce)
 
 ## Only consider cell types with 21 cells (min for scran)
-idx.cells <- colData(sce) %>%
-    as.data.frame() %>%
-    group_by(tissue, cluster) %>%
-    mutate(n=n()) %>%
-    ungroup() %>%
+idx_cells <- colData(sce) %>%
+    as.data.frame %>%
+    add_count(tissue, cluster) %>%
     pull(n) %>%
     map_lgl(~ .x > 20) %>%
-    which()
+    which
 
-sce <- sce[, idx.cells]
+sce <- sce[, idx_cells]
 
-idx.min.genes <- which(rowMeans(counts(sce)) > 0.1)
+idx_min_genes <- which(rowMeans(counts(sce)) > 0.1)
 
 ## Compute size factors based on cell types
-sizeFactors(sce) <- counts(sce[idx.min.genes,]) %>%
-    computeSumFactors(clusters=paste(sce$tissue, sce$cluster, sep='.'))
+sizeFactors(sce) <- sce[idx_min_genes,] %>%
+    calculateSumFactors(clusters=paste(sce$tissue, sce$cluster, sep='.'))
                       
 df <- colData(sce) %>%
-    as.data.frame() %>%
+    as.data.frame %>%
     mutate(size_factor=sizeFactors(sce),
            cts=colSums(counts(sce)))
 
 ## Compute truncated capture efficiency
-ce.centered <- df %>%
-    filter(size_factor > arg.minSF, size_factor < arg.maxSF) %>%
+ce_centered <- df %>%
+    filter(size_factor > snakemake@params$min_sf, size_factor < snakemake@params$max_sf) %>%
     pull(cts) %>%
-    median() / arg.mRNA
+    median() / snakemake@params$mrna_count
 
 df %>%
-    mutate(capture_efficiency=ce.centered*size_factor*100) %>%
-    select('cell', 'size_factor', 'capture_efficiency') %>%
-    write_tsv(arg.outFile)
+    mutate(capture_efficiency=ce_centered*size_factor*100) %>%
+    select('cell_id', 'size_factor', 'capture_efficiency') %>%
+    write_tsv(snakemake@output$tsv)

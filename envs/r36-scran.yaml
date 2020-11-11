@@ -1,8 +1,0 @@
-channels:
-  - bioconda
-  - defaults
-  - conda-forge
-dependencies:
-  - r-base=3.6.1
-  - r-tidyverse=1.2.1
-  - bioconductor-scran=1.12.1

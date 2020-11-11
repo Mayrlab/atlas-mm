@@ -34,29 +34,21 @@ dropInf <- function (M) {
     drop0(tmp)
 }
 
-## Load Arguments
+## Mock Data
 if (interactive()) {
-    args <- c("data/sce/merged.txs.raw.rds",
-              "data/ipa/adult.utrome.e3.t200.f0.999.w500.ipa.tsv",
-              "50",
-              "/scratch/fanslerm/ncells-genes.tsv",
-              "/scratch/fanslerm/utr-metadata.tsv")
-} else {
-    args = commandArgs(trailingOnly=TRUE)
-    if (length(args) != 5) {
-        stop("Incorrect number of arguments!\nUsage:\n> generate_utr_metadata.R <sceRDS> <ipaFile> <minCells> <outNCells> <outUTRs>\n")
-    }
+    Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
+    snakemake <- Snakemake(
+        input=list(sce="data/sce/merged.txs.raw.Rds",
+                   ipa="data/ipa/adult.utrome.e3.t200.f0.999.w500.ipa.tsv"),
+        output=list(n_cells="/fscratch/fanslerm/n_cells_genes.tsv",
+                    utr="/fscratch/fanslerm/utr_metadata.tsv"),
+        params=list(min_cells=50))
 }
-arg.sceRDS   <- args[1]
-arg.ipas     <- args[2]
-arg.minCells <- as.integer(args[3])
-arg.outCells <- args[4]
-arg.outUTRs  <- args[5]
 
 ## Load Data
-sce <- readRDS(arg.sceRDS)
+sce <- readRDS(snakemake@input$sce)
 
-df.ipas <- read_tsv(arg.ipas, col_types='cc')
+df.ipas <- read_tsv(snakemake@input$ipa, col_types='cc')
 
 ## Recompute UTR Info
 rowData(sce) %<>%
@@ -67,7 +59,8 @@ rowData(sce) %<>%
     mutate(utr.pct=counts.total/counts.total.gene,
            utr.rank=rank(desc(counts.total), ties.method="first")) %>%
     mutate(expressed.tx=(counts.total > 0), expressed.gene=(counts.total.gene > 0)) %>%
-    mutate(utr.count.mca=n(), utr.count.merged=sum(expressed.tx)) %>%
+    add_tally(name='utr.count.mca') %>%
+    mutate(utr.count.merged=sum(expressed.tx)) %>%
     mutate(utr.type.mca=ifelse(utr.count.mca > 1, 'multi', 'single'),
            utr.type.merged=ifelse(utr.count.merged > 1, 'multi', 'single')) %>%
     mutate(utr.type.matches=(utr.type.mca == utr.type.merged)) %>%
@@ -110,7 +103,7 @@ M.groups <- colData(sce)[,c('tissue', 'cell_type', 'age')] %>%
 
 ## Percent Usage across cell types
 ncells.genes.no_ipa.groups <- ((M.genes.no_ipa %*% counts(sce)) > 0) %*% M.groups
-valid.genes.no_ipa.groups <- drop0(ncells.genes.no_ipa.groups >= arg.minCells)
+valid.genes.no_ipa.groups <- drop0(ncells.genes.no_ipa.groups >= snakemake@params$min_cells)
 rowData(sce)["gene.ncelltypes.cells50.no_ipa"] <- (t(M.genes) %*% rowSums(valid.genes.no_ipa.groups)) %>%
     as.numeric()
 
@@ -170,7 +163,7 @@ ncells.genes.no_ipa.groups %>%
     as.matrix() %>%
     as.data.frame() %>%
     rownames_to_column('gene_id') %>%
-    write_tsv(arg.outCells)
+    write_tsv(snakemake@output$n_cells)
 
 rowData(sce) %>%
     as.data.frame() %>%
@@ -181,7 +174,7 @@ rowData(sce) %>%
                                  ifelse(utr.count.pct10.no_ipa == 1, 'single',
                                         utr.type.mca))) %>%
     dplyr::rename(utr.pct.total=utr.pct, utr.rank.total=utr.rank) %>%
-    select(transcript_name, gene_id, gene_symbol, chromosome,
+    select(transcript_id, gene_id, gene_symbol,
            counts.total, counts.total.gene,
            utr.pct.total, utr.rank.total,
            expressed.tx, expressed.gene, is_ipa,
@@ -191,4 +184,4 @@ rowData(sce) %>%
            utr.count.celltypes.pct05.no_ipa, utr.count.celltypes.pct10.no_ipa,
            utr.count.pct05.no_ipa, utr.count.pct10.no_ipa,
            utr.type.pct05.no_ipa, utr.type.pct10.no_ipa) %>%
-      write_tsv(arg.outUTRs)
+      write_tsv(snakemake@output$utr)
