@@ -64,11 +64,12 @@ if (interactive()) {
     snakemake <- Snakemake(
         input=list(utrome="/data/mayrc/data/mca/gff/adult.utrome.e3.t200.f0.999.w500.gtf",
                    gencode="/data/mayrc/db/mm10/gencode.vM21.annotation.mRNA_ends_found.gtf.gz",
-                   utrs="data/utrs/utr_metadata.tsv"),
+                   utrs="data/utrs/utr_metadata.tsv",
+                   blacklist="data/blacklist.utrome.genes.txt"),
         output=list(txs="/fscratch/fanslerm/txs_utr_metadata_lengths.tsv",
                     genes="/fscratch/fanslerm/genes_utr_metadata_lengths.tsv"),
         params=list(),
-        threads=2L)
+        threads=3L)
 }
 
 ################################################################################
@@ -78,6 +79,7 @@ if (interactive()) {
 utrome.gr  <- read_gff(snakemake@input$utrome)
 gencode.gr <- read_gff(snakemake@input$gencode)
 df.utrs <- read_tsv(snakemake@input$utrs)
+genes_blacklist <- read_lines(snakemake@input$blacklist)
 
 df.utrome <- utrome.gr %>%
     filter(type == 'transcript') %>%
@@ -104,6 +106,8 @@ df.utr.lengths <- mcmapply(
             extractUTR3() %>%
             arrange(exon_number) %>%
             width()
+        ## txs without annotated UTRs are marked 'NA'
+        ## txs where the offset is upstream of the last exon is marked improper
         improper <- ifelse(length(widths) == 0, NA, tail(widths, n=1) + offset < 0)
         list(transcript_id=transcript_id,
              transcript_gencode=transcript_gencode,
@@ -231,6 +235,27 @@ df.utrs.final[idx.Rbm3.2, 'utr_length'] <- GenomicRanges::intersect(
 
 
 ################################################################################
+## Blacklist Multi-UTR Genes
+################################################################################
+
+#' We have three reasons for blacklisting genes:
+#'  - gene collisions, where isoforms from multiple genes cannot be distinguished
+#'  - downstream A-rich regions lead oversensitivity to fluctuations in internal
+#'    priming, which we know occurs at a batch-level
+#'  - unannotated "stop_codon" or "three_prime_utr", leading to zero length UTRs
+#'
+#' The former two are external and are maintained in the blacklist file. The
+#' latter are computed here. All are marked here in the annotation.
+
+## Identify genes where isoforms with unidentified UTRs are part of a multi-UTR gene
+df.utrs.final %<>%
+    group_by(gene_id) %>%
+    mutate(is_blacklisted=any(is.na(utr_length) && !is_ipa && utr.type.pct10.no_ipa == 'multi' &&
+                         ((utr.ncelltypes.pct10.no_ipa > 0) || (utr.pct.no_ipa >= 0.1)))) %>%
+    ungroup() %>%
+    mutate(is_blacklisted=is_blacklisted | (gene_symbol %in% genes_blacklist))
+
+################################################################################
 ## Compute Gene Data
 ################################################################################
 
@@ -238,7 +263,7 @@ df.utr.genes <- df.utrs.final %>%
     filter(!is_ipa, (utr.pct.no_ipa >= 0.1) | (utr.ncelltypes.pct10.no_ipa > 0)) %>%
     group_by(gene_symbol, gene_id, gene.ncelltypes.cells50.no_ipa,
              utr.type.pct10.no_ipa,
-             utr.count.pct10.no_ipa) %>%
+             utr.count.pct10.no_ipa, is_blacklisted) %>%
     mutate(utr_type=ifelse(max(utr_length) == utr_length, "LU",
                     ifelse(min(utr_length) == utr_length, "SU", "MU"))) %>%
     spread(key=utr_type, value=utr_length) %>%
@@ -247,8 +272,8 @@ df.utr.genes <- df.utrs.final %>%
     rename(ncelltypes50=gene.ncelltypes.cells50.no_ipa,
            utr_type=utr.type.pct10.no_ipa,
            utr_count=utr.count.pct10.no_ipa) %>%
-    dplyr::select(gene_symbol, gene_id, utr_type, utr_count, SU, MU, LU, ncelltypes50)
-
+    dplyr::select(gene_symbol, gene_id, utr_type, utr_count, SU, MU, LU,
+                  ncelltypes50, is_blacklisted)
 
 ################################################################################
 ## Export Data 

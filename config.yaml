@@ -26,7 +26,7 @@ utromeIPA:
   "data/ipa/adult.utrome.e3.t200.f0.999.w500.ipa.tsv"
 
 utromeBlacklist:
-  "data/blacklist.utrome.txt"
+  "metadata/blacklist.utrome.genes.txt"
 
 sce:
   txs:

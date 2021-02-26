@@ -66,11 +66,12 @@ rule generate_utr_metadata:
     script:
         "scripts/generate_utr_metadata.R"
 
-rule generate_gene_utr_metadata:
+rule generate_utr_length_metadata:
     input:
         utrome=config['utromeGTF'],
         gencode=config['gencodeValidEndsGTF'],
-        utrs="data/utrs/utr_metadata.tsv"
+        utrs="data/utrs/utr_metadata.tsv",
+        blacklist=config["utromeBlacklist"]
     output:
         txs="data/utrs/txs_utr_metadata_lengths.tsv",
         genes="data/utrs/genes_utr_metadata_lengths.tsv"
@@ -80,7 +81,7 @@ rule generate_gene_utr_metadata:
     conda:
         "envs/bioc_3_11.yaml"
     script:
-        "scripts/generate_gene_utr_metadata.R"
+        "scripts/generate_utr_length_metadata.R"
 
 rule annotate_txs_sce:
     input:
