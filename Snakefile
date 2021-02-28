@@ -14,9 +14,8 @@ rule all:
         expand("data/sce/{dataset}.{level}.full_annot.Rds",
                dataset=['tmuris', 'brain', 'hspcs', 'merged'],
                level=['genes', 'txs']),
-        "data/lui/merged_lui_expr_pointestimates.tsv.gz",
-        "data/lui/merged_gene_expr_pointestimates.tsv.gz",
-        "data/utrs/df_multiutrs.tsv"
+        "data/lui/merged_lui_cpc_pointestimates.tsv.gz",
+        "data/lui/merged_gene_tpm_pointestimates.tsv.gz"
 
 rule merge_sces:
     input:
@@ -106,14 +105,14 @@ rule clean_genes_annotation:
 rule annotate_txs_sce:
     input:
         sce=lambda wcs: config['sce']['txs'][wcs.dataset],
-        utrs="data/utrs/txs_utr_metadata_lengths.tsv",
+        utrs="data/utrs/utrome_txs_annotation.tsv",
         size_factors="data/scran/merged.size_factors.tsv.gz"
     output:
         sce="data/sce/{dataset}.txs.full_annot.Rds"
     wildcard_constraints:
         dataset=datasets_selector
     resources:
-        mem_mb=4000
+        mem_mb=8000
     conda:
         "envs/bioc_3_11.yaml"
     script:
@@ -122,12 +121,12 @@ rule annotate_txs_sce:
 rule annotate_txs_sce_all:
     input:
         sce="data/sce/merged.txs.raw.Rds",
-        utrs="data/utrs/txs_utr_metadata_lengths.tsv",
+        utrs="data/utrs/utrome_txs_annotation.tsv",
         size_factors="data/scran/merged.size_factors.tsv.gz"
     output:
         sce="data/sce/merged.txs.full_annot.Rds"
     resources:
-        mem_mb=4000
+        mem_mb=16000
     conda:
         "envs/bioc_3_11.yaml"
     script:
@@ -136,14 +135,14 @@ rule annotate_txs_sce_all:
 rule annotate_genes_sce:
     input:
         sce=lambda wcs: config['sce']['genes'][wcs.dataset],
-        utrs="data/utrs/genes_utr_metadata_lengths.tsv",
+        utrs="data/utrs/utrome_genes_annotation.tsv",
         size_factors="data/scran/merged.size_factors.tsv.gz"
     output:
         sce="data/sce/{dataset}.genes.full_annot.Rds"
     wildcard_constraints:
         dataset=datasets_selector
     resources:
-        mem_mb=4000
+        mem_mb=8000
     conda:
         "envs/bioc_3_11.yaml"
     script:
@@ -152,12 +151,12 @@ rule annotate_genes_sce:
 rule annotate_sce_all:
     input:
         sce="data/sce/merged.genes.raw.Rds",
-        utrs="data/utrs/genes_utr_metadata_lengths.tsv",
+        utrs="data/utrs/utrome_genes_annotation.tsv",
         size_factors="data/scran/merged.size_factors.tsv.gz"
     output:
         sce="data/sce/merged.genes.full_annot.Rds"
     resources:
-        mem_mb=4000
+        mem_mb=16000
     conda:
         "envs/bioc_3_11.yaml"
     script:
@@ -166,48 +165,35 @@ rule annotate_sce_all:
 rule generate_lui_table:
     input:
         sce="data/sce/merged.txs.full_annot.Rds",
-        blacklist=config["utromeBlacklist"]
+        genes="data/utrs/utrome_genes_annotation.tsv"
     params:
         min_cells=50
     output:
-        lui="data/lui/merged_lui_expr_pointestimates.tsv.gz",
+        lui="data/lui/merged_lui_cpc_pointestimates.tsv.gz",
         n_cells="data/lui/merged_ncells_expr.tsv"
     conda:
         "envs/bioc_3_11.yaml"
     resources:
-        mem_mb=12000
+        mem_mb=16000
     script:
         "scripts/generate_lui_table.R"
 
 rule generate_gene_table:
     input:
-        sce="data/sce/merged.genes.full_annot.Rds",
-        blacklist=config["utromeBlacklist"]
+        sce="data/sce/merged.genes.full_annot.Rds"
     output:
-        tsv="data/lui/merged_gene_expr_pointestimates.tsv.gz"
+        cpc="data/lui/merged_gene_cpc_pointestimates.tsv.gz",
+        tpm="data/lui/merged_gene_tpm_pointestimates.tsv.gz"
     conda:
         "envs/bioc_3_11.yaml"
     resources:
-        mem_mb=12000
+        mem_mb=16000
     script:
         "scripts/generate_gene_table.R"
 
-rule export_multiutrs:
-    input:
-        utrs="data/utrs/txs_utr_metadata_lengths.tsv",
-        blacklist=config["utromeBlacklist"]
-    output:
-        tsv="data/utrs/df_multiutrs.tsv"
-    conda:
-        "envs/bioc_3_11.yaml"
-    resources:
-        mem_mb=4000
-    script:
-        "scripts/export_multiutrs.R"
-
 rule export_multiutr_genes:
     input:
-        multiutrs="data/utrs/df_multiutrs.tsv"
+        utrs="data/utrs/utrome_genes_annotation.tsv"
     output:
         ens="data/utrs/genes_multiutr_ensembl.txt",
         sym="data/utrs/genes_multiutr_symbols.txt",

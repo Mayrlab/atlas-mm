@@ -14,10 +14,10 @@ library(org.Mm.eg.db)
 if (interactive()) {
     Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
     snakemake <- Snakemake(
-        input=list(multiutrs="data/utrs/df_multiutrs.tsv"),
-        output=list(ens="/fscratch/fansler/genes_multiutr_ensembl.txt",
-                    sym="/fscratch/fansler/genes_multiutr_symbols.txt",
-                    mgi="/fscratch/fansler/genes_multiutr_mgi.txt"),
+        input=list(utrs="data/utrs/utrome_genes_annotation.tsv"),
+        output=list(ens="/fscratch/fanslerm/genes_multiutr_ensembl.txt",
+                    sym="/fscratch/fanslerm/genes_multiutr_symbols.txt",
+                    mgi="/fscratch/fanslerm/genes_multiutr_mgi.txt"),
         params=list())
 }
 
@@ -26,31 +26,25 @@ if (interactive()) {
 ################################################################################
 
 ## Load UTRs
-df.utrs <- read_tsv(snakemake@input$multiutrs)
+df_genes <- read_tsv(snakemake@input$utrs) %>%
+    filter(!is_blacklisted, atlas.utr_type == 'multi')
 
 ################################################################################
 ## Filter Overlapping Transcripts, Export
 ################################################################################
 
-df.genes <- df.utrs %>%
-    filter(!overlapping) %>%
-    group_by(gene_id) %>%
-    mutate(tx_nonoverlapping=n()) %>%
-    ungroup() %>%
-    filter(tx_nonoverlapping > 1)
-
-df.genes %>%
+df_genes %>%
     pull(gene_id) %>%
     str_extract("^[^.]+") %>%
     unique() %>%
     write_lines(snakemake@output$ens)
 
-df.genes %>%
+df_genes %>%
     pull(gene_symbol) %>%
     unique() %>%
     write_lines(snakemake@output$sym)
 
-mgis <- df.genes %>%
+mgis <- df_genes %>%
     pull(gene_id) %>%
     str_extract("^[^.]+") %>%
     unique() %>%

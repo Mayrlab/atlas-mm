@@ -38,10 +38,11 @@ utr_lengths_str <- function (utr_length, idx) {
 
 df_genes_final <- df_utrs %>%
     group_by(gene_id, gene_symbol, atlas.ncelltypes_gene, atlas.utr_type,
-             atlas.n_utrs_no_ipa, is_blacklisted, is_consistent) %>%
-    summarize(has_ipa=any(is_ipa), .groups='drop',
+             atlas.n_utrs_no_ipa, is_blacklisted) %>%
+    summarize(is_consistent=all(is_consistent), has_ipa=any(is_ipa),
               utr_lengths_tandem=utr_lengths_str(utr_length, !is_ipa),
-              utr_lengths_ipa=utr_lengths_str(utr_length, is_ipa))
+              utr_lengths_ipa=utr_lengths_str(utr_length, is_ipa),
+              .groups='drop')
 
 ################################################################################
 ## Export

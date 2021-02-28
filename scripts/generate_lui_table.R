@@ -19,7 +19,7 @@ if (interactive()) {
     Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
     snakemake <- Snakemake(
         input=list(sce="data/sce/merged.txs.full_annot.Rds",
-                   blacklist="data/blacklist.utrome.txt"),
+                   genes="data/utrs/utrome_genes_annotation.tsv"),
         output=list(lui="/fscratch/fanslerm/merged_lui_expr_pointestimates.tsv",
                     n_cells="/fscratch/fanslerm/merged_ncells_expr.tsv"),
         params=list(min_cells=50))
@@ -31,102 +31,98 @@ if (interactive()) {
 
 ## Load UTR Counts
 sce <- readRDS(snakemake@input$sce)
-sce <- sce[, !is.na(sce$size_factor.merged)]
 
-## Known blacklist
-genes.blacklist <- read_lines(snakemake@input$blacklist)
+df_genes <- read_tsv(snakemake@input$genes, col_types='cci_ill_c_')
 
 ################################################################################
 ## Identify Multiutrs
 ################################################################################
 
-df.multiutrs <- rowData(sce) %>%
-    as.data.frame() %>%
-    filter(utr.count.no_ipa >= 2,
-           is_ipa == FALSE,
-           gene.ncelltypes.cells50.no_ipa >= 2,
-           (utr.pct.no_ipa >= 0.1) | (utr.ncelltypes.no_ipa > 0)) %>%
-    filter(!(gene_symbol %in% genes.blacklist)) %>%
-    mutate(utr_position=as.integer(str_extract(transcript_id, "[0-9]+$"))) %>%
-    group_by(gene_symbol) %>%
-    mutate(is_LU=(utr_length == max(utr_length, na.rm=TRUE))) %>%
-    ungroup() %>%
+df_multiutrs <- rowData(sce) %>%
+    as_tibble %>%
+    filter(atlas.utr_type == 'multi',
+           is_ipa == FALSE, is_blacklisted == FALSE,
+           atlas.ncelltypes_gene >= 2) %>%
     arrange(gene_symbol, utr_position)
 
 cat(sprintf("Considering **%d genes**.\n",
-            df.multiutrs %>% pull(gene_symbol) %>% unique() %>% length()))
+            df_multiutrs %>% pull(gene_id) %>% unique() %>% length()))
 
-idx.utrs <- df.multiutrs %>% pull(transcript_id)
+idx_utrs <- df_multiutrs %>% pull(transcript_id)
 
 ################################################################################
 ## DESIGN MATRICES 
 ################################################################################
 
 ## M: (cells) x (cell types)
-M.celltypes <- colData(sce)[,c('tissue', 'cell_type', 'age')] %>%
-    as.data.frame() %>%
+M_cells_celltypes <- colData(sce)[,c('tissue', 'cell_type', 'age')] %>%
+    as_tibble %>%
     mutate(tissue_celltype_age=paste(
                str_replace_all(tissue, "_", " "),
                cell_type,
                age, sep=', ')) %>%
     pull(tissue_celltype_age) %>%
-    fac2sparse() %>%
-    t()
+    fac2sparse %>%
+    t
 
 ## M: (genes) x (utrs)
-M.genes <- rowData(sce[idx.utrs,])$gene_symbol %>% fac2sparse()
-colnames(M.genes) <- idx.utrs
+M_genes_txs <- rowData(sce[idx_utrs,])$gene_id %>% fac2sparse()
+colnames(M_genes_txs) <- idx_utrs
 
 ## M: (distal UTRs) x (utrs)
-M.LU <- M.genes %*% Diagonal(ncol(M.genes), df.multiutrs$is_LU)
-
+M_distal_txs <- M_genes_txs %*% Diagonal(ncol(M_genes_txs), df_multiutrs$is_distal)
 
 ################################################################################
 ## COMPUTE LUI AND GENE COUNTS 
 ################################################################################
 
 ## transcripts counts
-cts.celltypes <- counts(sce[idx.utrs,]) %*% (M.celltypes / sce$size_factor.merged)
-    
+cts_txs_celltypes <- assay(sce[idx_utrs,], 'normcounts') %*% M_cells_celltypes
+
+## n celltypes
+ncells_celltypes <- colSums(M_cells_celltypes)
+
 ## mean gene counts
-mu.gene.celltypes <- t(t(M.genes %*% cts.celltypes) / colSums(M.celltypes))
+cpc_genes_celltypes <- M_genes_txs %*% cts_txs_celltypes %*% Diagonal(length(ncells_celltypes), 1/ncells_celltypes)
 
 ## number of cells in each cell type expressing a given gene
-expr.gene.celltypes <- ((M.genes %*% counts(sce[idx.utrs,])) > 0) %*% M.celltypes
+ncells_genes_celltypes <- ((M_genes_txs %*% counts(sce[idx_utrs,])) > 0) %*% M_cells_celltypes
 
 ## Point Estimates for LUI for all (gene) x (cell type)
-lui.point <- (M.LU %*% cts.celltypes) / (M.genes %*% cts.celltypes)
+lui_genes_celltypes <- (M_distal_txs %*% cts_txs_celltypes) / (M_genes_txs %*% cts_txs_celltypes)
 
 ## Mask all gene-cell combinations
-lui.point[which(expr.gene.celltypes < snakemake@params$min_cells)] <- NA
+lui_genes_celltypes[which(ncells_genes_celltypes < snakemake@params$min_cells)] <- NA
 
 ################################################################################
 ## Wide table 
 ################################################################################
 
-df.lui <- lui.point %>%
-    as.matrix() %>% as.data.frame() %>%
-    rownames_to_column('gene') %>%
-    mutate(n_utrs=rowSums(M.genes)) %>%
-    select(gene, n_utrs, everything())
+df_lui <- lui_genes_celltypes %>%
+    as.matrix %>% as.data.frame %>%
+    rownames_to_column('gene_id') %>%
+    select(gene_id, everything()) 
 
-df.gene.expr <- mu.gene.celltypes %>%
-    as.matrix() %>% as.data.frame() %>%
-    rownames_to_column('gene') %>%
-    select(gene, everything())
 
-df.full <- df.lui %>%
-    left_join(df.gene.expr, by='gene', suffix=c(" LUI", " Mean Expression"))
+df_cpc <- cpc_genes_celltypes %>%
+    as.matrix %>% as.data.frame %>%
+    rownames_to_column('gene_id') %>%
+    select(gene_id, everything())
+
+df_full <- df_lui %>%
+    left_join(df_cpc, by='gene_id', suffix=c(" LUI", " Mean Expression")) %>%
+    right_join(x=df_genes, by='gene_id')
 
 ################################################################################
 ## Export
 ################################################################################
 
-write_tsv(df.full, snakemake@output$lui)
+write_tsv(df_full, snakemake@output$lui)
 
-expr.gene.celltypes %>%
-    as.matrix() %>%
-    as.data.frame() %>%
-    rownames_to_column('gene') %>%
-    select(gene, everything()) %>%
+ncells_genes_celltypes %>%
+    as.matrix %>%
+    as.data.frame %>%
+    rownames_to_column('gene_id') %>%
+    select(gene_id, everything()) %>%
+    right_join(x=df_genes, by='gene_id') %>%
     write_tsv(snakemake@output$n_cells)

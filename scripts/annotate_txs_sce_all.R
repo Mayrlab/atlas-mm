@@ -5,6 +5,7 @@
 ################################################################################
 
 library(SingleCellExperiment)
+library(scater)
 library(S4Vectors)
 library(tidyverse)
 library(magrittr)
@@ -17,7 +18,7 @@ if (interactive()) {
     Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
     snakemake <- Snakemake(
         input=list(sce="data/sce/merged.txs.raw.Rds",
-                   utrs="data/utrs/txs_utr_metadata_lengths.tsv",
+                   utrs="data/utrs/utrome_txs_annotation.tsv",
                    size_factors="data/scran/merged.size_factors.tsv.gz"),
         output=list(sce="/fscratch/fanslerm/merged.txs.full_annot.Rds"),
         params=list())
@@ -29,15 +30,12 @@ if (interactive()) {
 
 sce <- readRDS(snakemake@input$sce)
 
-df.utrs <- read_tsv(snakemake@input$utrs, col_types='c____di__l__d___ii___i_ccil') %>%
-    dplyr::rename(utr.ncelltypes.no_ipa=utr.ncelltypes.pct10.no_ipa,
-                  utr.count.no_ipa=utr.count.pct10.no_ipa,
-                  utr.type.no_ipa=utr.type.pct10.no_ipa,
-                  improper_utr_length=improper)
+df_utrs <- read_tsv(snakemake@input$utrs, col_types='ccccilllildidiicill') %>%
+    set_rownames(.$transcript_id) %>%
+    DataFrame()
 
-df.sizeFactors <- read_tsv(snakemake@input$size_factors, col_types='cdd') %>%
-    rename_at(vars(-c('cell_id')), ~ str_c(., '.merged'))
-
+df_sizeFactors <- read_tsv(snakemake@input$size_factors, col_types='cdd', skip=1,
+                           col_names=c('cell_id', 'atlas.size_factor', 'atlas.capture_efficiency'))
 
 ################################################################################
 ## Reannotate Transcripts
@@ -47,23 +45,28 @@ df.sizeFactors <- read_tsv(snakemake@input$size_factors, col_types='cdd') %>%
 old.rownames <- rownames(sce)
 old.colnames <- colnames(sce)
 
-rowData(sce) %<>%
-    as.data.frame() %>%
-    rownames_to_column() %>%
-    left_join(df.utrs, by='transcript_id') %>%
-    column_to_rownames() %>%
-    DataFrame()
+rowData(sce) <- df_utrs[old.rownames,]
 
 colData(sce) %<>%
     as.data.frame() %>%
     mutate(cell_id=rownames(.)) %>%
-    left_join(df.sizeFactors, by="cell_id") %>%
+    left_join(df_sizeFactors, by="cell_id") %>%
     set_rownames(.$cell_id) %>%
     DataFrame()
 
 ## Ensure we are not scrambling genes or cells
 stopifnot(all(rownames(sce) == old.rownames))
 stopifnot(all(colnames(sce) == old.colnames))
+
+################################################################################
+## Size Factors
+################################################################################
+
+sce %<>% `[`(,!is.na(.$atlas.size_factor))
+
+sizeFactors(sce) <- sce$atlas.size_factor
+
+assay(sce, 'normcounts') <- normalizeCounts(sce, log=FALSE)
 
 ################################################################################
 ## Export
