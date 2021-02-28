@@ -83,6 +83,26 @@ rule generate_utr_length_metadata:
     script:
         "scripts/generate_utr_length_metadata.R"
 
+rule clean_txs_annotation:
+    input:
+        utrs="data/utrs/txs_utr_metadata_lengths.tsv"
+    output:
+        tsv="data/utrs/utrome_txs_annotation.tsv"
+    conda:
+        "envs/bioc_3_11.yaml"
+    script:
+        "scripts/clean_txs_annotation.R"
+        
+rule clean_genes_annotation:
+    input:
+        utrs="data/utrs/utrome_txs_annotation.tsv"
+    output:
+        tsv="data/utrs/utrome_genes_annotation.tsv"
+    conda:
+        "envs/bioc_3_11.yaml"
+    script:
+        "scripts/clean_genes_annotation.R"
+        
 rule annotate_txs_sce:
     input:
         sce=lambda wcs: config['sce']['txs'][wcs.dataset],
