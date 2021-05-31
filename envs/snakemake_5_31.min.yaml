@@ -1,0 +1,12 @@
+name: snakemake_5_31
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - git
+  - git-lfs
+  - snakemake=5.31
+  - python=3.8
+  - pandas
+prefix: /home/fanslerm/software/miniconda3/envs/snakemake_5_31
