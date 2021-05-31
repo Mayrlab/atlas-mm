@@ -32,8 +32,10 @@ sce:
   txs:
     tmuris: "/data/mayrc/data/tmuris/sce/tmuris.utrome.txs.Rds"
     brain: "/data/mayrc/fanslerm/scutr-quant/data/sce/ximerakis19.utrome.txs.Rds"
-    hspcs: "/data/mayrc/data/mm-hspc-44k/sce/hspcs.utrome.txs.Rds"
+    hspcs: "/data/mayrc/data/mm-hspc-44k/sce/hspcs.utrome.txs.Rds" 
+    mescs: "/data/mayrc/fanslerm/scutr-quant/data/sce/guo19.utrome.txs.Rds"
   genes:
     tmuris: "/data/mayrc/data/tmuris/sce/tmuris.utrome.genes.Rds"
     brain: "/data/mayrc/fanslerm/scutr-quant/data/sce/ximerakis19.utrome.genes.Rds"
-    hspcs: "/data/mayrc/data/mm-hspc-44k/sce/hspcs.utrome.genes.Rds"
+    hspcs: "/data/mayrc/data/mm-hspc-44k/sce/hspcs.utrome.genes.Rds" 
+    mescs: "/data/mayrc/fanslerm/scutr-quant/data/sce/guo19.utrome.genes.Rds"

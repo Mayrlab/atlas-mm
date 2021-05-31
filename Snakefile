@@ -21,7 +21,8 @@ rule merge_sces:
     input:
         tmuris=lambda wcs: config["sce"][wcs.level]["tmuris"],
         brain=lambda wcs: config["sce"][wcs.level]["brain"],
-        hspcs=lambda wcs: config["sce"][wcs.level]["hspcs"]
+        hspcs=lambda wcs: config["sce"][wcs.level]["hspcs"],
+        mescs=lambda wcs: config["sce"][wcs.level]["mescs"]
     output:
         sce="data/sce/merged.{level}.raw.Rds"
     wildcard_constraints:
@@ -29,7 +30,7 @@ rule merge_sces:
     conda:
         "envs/bioc_3_11.yaml"
     resources:
-        mem_mb=12000
+        mem_mb=16000
     script:
         "scripts/merge_sces.R"
 
@@ -59,7 +60,7 @@ rule generate_utr_metadata:
     params:
         min_cells=50
     resources:
-        mem_mb=12000
+        mem_mb=16000
     conda:
         "envs/bioc_3_11.yaml"
     script:
