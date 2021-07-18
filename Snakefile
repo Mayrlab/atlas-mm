@@ -12,7 +12,9 @@ datasets_selector = "(" + "|".join(config['sce']['txs'].keys()) + ")"
 rule all:
     input:
         expand("data/sce/{dataset}.{level}.full_annot.Rds",
-               dataset=['tmuris', 'brain', 'hspcs', 'merged'],
+               dataset=['tmuris', 'brain', 'hspcs', 'mescs', 'merged'],
+               level=['genes', 'txs']),
+        expand("data/utrs/utrome_{level}_annotation.Rds",
                level=['genes', 'txs']),
         "data/lui/merged_lui_cpc_pointestimates.tsv.gz",
         "data/lui/merged_gene_tpm_pointestimates.tsv.gz"
@@ -87,7 +89,8 @@ rule clean_txs_annotation:
     input:
         utrs="data/utrs/txs_utr_metadata_lengths.tsv"
     output:
-        tsv="data/utrs/utrome_txs_annotation.tsv"
+        tsv="data/utrs/utrome_txs_annotation.tsv",
+        rds="data/utrs/utrome_txs_annotation.Rds"
     conda:
         "envs/bioc_3_11.yaml"
     script:
@@ -97,7 +100,8 @@ rule clean_genes_annotation:
     input:
         utrs="data/utrs/utrome_txs_annotation.tsv"
     output:
-        tsv="data/utrs/utrome_genes_annotation.tsv"
+        tsv="data/utrs/utrome_genes_annotation.tsv",
+        rds="data/utrs/utrome_genes_annotation.Rds"
     conda:
         "envs/bioc_3_11.yaml"
     script:
@@ -106,7 +110,7 @@ rule clean_genes_annotation:
 rule annotate_txs_sce:
     input:
         sce=lambda wcs: config['sce']['txs'][wcs.dataset],
-        utrs="data/utrs/utrome_txs_annotation.tsv",
+        utrs="data/utrs/utrome_txs_annotation.Rds",
         size_factors="data/scran/merged.size_factors.tsv.gz"
     output:
         sce="data/sce/{dataset}.txs.full_annot.Rds"
@@ -122,7 +126,7 @@ rule annotate_txs_sce:
 rule annotate_txs_sce_all:
     input:
         sce="data/sce/merged.txs.raw.Rds",
-        utrs="data/utrs/utrome_txs_annotation.tsv",
+        utrs="data/utrs/utrome_txs_annotation.Rds",
         size_factors="data/scran/merged.size_factors.tsv.gz"
     output:
         sce="data/sce/merged.txs.full_annot.Rds"
@@ -136,7 +140,7 @@ rule annotate_txs_sce_all:
 rule annotate_genes_sce:
     input:
         sce=lambda wcs: config['sce']['genes'][wcs.dataset],
-        utrs="data/utrs/utrome_genes_annotation.tsv",
+        utrs="data/utrs/utrome_genes_annotation.Rds",
         size_factors="data/scran/merged.size_factors.tsv.gz"
     output:
         sce="data/sce/{dataset}.genes.full_annot.Rds"
@@ -152,7 +156,7 @@ rule annotate_genes_sce:
 rule annotate_sce_all:
     input:
         sce="data/sce/merged.genes.raw.Rds",
-        utrs="data/utrs/utrome_genes_annotation.tsv",
+        utrs="data/utrs/utrome_genes_annotation.Rds",
         size_factors="data/scran/merged.size_factors.tsv.gz"
     output:
         sce="data/sce/merged.genes.full_annot.Rds"

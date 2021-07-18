@@ -18,7 +18,7 @@ if (interactive()) {
     Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
     snakemake <- Snakemake(
         input=list(sce="data/sce/merged.txs.raw.Rds",
-                   utrs="data/utrs/utrome_txs_annotation.tsv",
+                   utrs="data/utrs/utrome_txs_annotation.Rds",
                    size_factors="data/scran/merged.size_factors.tsv.gz"),
         output=list(sce="/fscratch/fanslerm/merged.txs.full_annot.Rds"),
         params=list())
@@ -30,9 +30,7 @@ if (interactive()) {
 
 sce <- readRDS(snakemake@input$sce)
 
-df_utrs <- read_tsv(snakemake@input$utrs, col_types='ccccilllildidiicill') %>%
-    set_rownames(.$transcript_id) %>%
-    DataFrame()
+df_utrs <- readRDS(snakemake@input$utrs)
 
 df_sizeFactors <- read_tsv(snakemake@input$size_factors, col_types='cdd', skip=1,
                            col_names=c('cell_id', 'atlas.size_factor', 'atlas.capture_efficiency'))

@@ -6,6 +6,7 @@
 
 library(tidyverse)
 library(magrittr)
+library(S4Vectors)
 
 ################################################################################
 ## Mock Arguments
@@ -15,7 +16,8 @@ if (interactive()) {
     Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
     snakemake <- Snakemake(
         input=list(utrs="data/utrs/utrome_txs_annotation.tsv"),
-        output=list(tsv="/fscratch/fanslerm/utrome_genes_annotation.tsv"),
+        output=list(tsv="/fscratch/fanslerm/utrome_genes_annotation.tsv",
+                    rds="/fscratch/fanslerm/utrome_genes_annotation.Rds"),
         params=list())
 }
 
@@ -49,3 +51,7 @@ df_genes_final <- df_utrs %>%
 ################################################################################
 
 write_tsv(df_genes_final, snakemake@output$tsv)
+
+df_genes_final %>%
+    DataFrame(row.names=.$gene_id) %>%
+    saveRDS(snakemake@output$rds)

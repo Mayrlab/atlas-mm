@@ -21,7 +21,7 @@ if (interactive()) {
             ##sce="/data/mayrc/data/tmuris/sce/tmuris.utrome.genes.Rds",
             ##sce="/data/mayrc/data/mm-hspc-44k/sce/hspcs.utrome.genes.Rds",
             sce="/data/mayrc/fanslerm/scutr-quant/data/sce/ximerakis19.utrome.txs.Rds",
-            utrs="data/utrs/utrome_genes_annotation.tsv",
+            utrs="data/utrs/utrome_genes_annotation.Rds",
             size_factors="data/scran/merged.size_factors.tsv.gz"),
         output=list(sce="/fscratch/fanslerm/tmuris.utrome.txs.full_annot.Rds"),
         params=list())
@@ -33,9 +33,7 @@ if (interactive()) {
 
 sce <- readRDS(snakemake@input$sce)
 
-df_utrs <- read_tsv(snakemake@input$utrs, col_types='ccicilllcc') %>%
-    set_rownames(.$gene_id) %>%
-    DataFrame()
+df_utrs <- readRDS(snakemake@input$utrs)
 
 df_sizeFactors <- read_tsv(snakemake@input$size_factors, col_types='cdd', skip=1,
                            col_names=c('cell_id', 'atlas.size_factor', 'atlas.capture_efficiency'))
