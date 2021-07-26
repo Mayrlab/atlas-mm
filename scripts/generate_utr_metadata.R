@@ -41,7 +41,8 @@ if (interactive()) {
         input=list(sce="data/sce/merged.txs.raw.Rds",
                    ipa="data/ipa/adult.utrome.e3.t200.f0.999.w500.ipa.tsv"),
         output=list(n_cells="/fscratch/fanslerm/n_cells_genes.tsv",
-                    utr="/fscratch/fanslerm/utr_metadata.tsv"),
+                    utr="/fscratch/fanslerm/utr_metadata.tsv",
+                    cts="/fscratch/fanslerm/cts_txs_celltype.Rds"),
         params=list(min_cells=50))
 }
 
@@ -112,7 +113,6 @@ cts.genes.no_ipa.groups <- M.genes.no_ipa %*% cts.txs.groups
 pct.txs.no_ipa.groups <- cts.txs.groups %>%
     sdiv(t(M.genes.no_ipa) %*% (cts.genes.no_ipa.groups * valid.genes.no_ipa.groups))
 
-
 rowData(sce)["utr.ncelltypes.pct05.no_ipa"] <- rowSums(pct.txs.no_ipa.groups >= 0.05)
 rowData(sce)["utr.ncelltypes.pct10.no_ipa"] <- rowSums(pct.txs.no_ipa.groups >= 0.1)
 rowData(sce)["utr.count.celltypes.pct05.no_ipa"] <- t(M.genes) %*% M.genes.no_ipa %*% (rowSums(pct.txs.no_ipa.groups >= 0.05) > 0) %>% as.numeric()
@@ -165,6 +165,10 @@ ncells.genes.no_ipa.groups %>%
     rownames_to_column('gene_id') %>%
     write_tsv(snakemake@output$n_cells)
 
+## Write UMI Counts per UTR Per Cell Type Group
+saveRDS(cts.txs.groups, snakemake@output$cts)
+
+## Write UTR metadata
 rowData(sce) %>%
     as.data.frame() %>%
     mutate(utr.type.pct05.no_ipa=ifelse(utr.count.pct05.no_ipa > 1, "multi",

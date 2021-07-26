@@ -58,7 +58,8 @@ rule generate_utr_metadata:
         ipa=config['utromeIPA']
     output:
         n_cells="data/utrs/n_cells_genes.tsv",
-        utr="data/utrs/utr_metadata.tsv"
+        utr="data/utrs/utr_metadata.tsv",
+        cts="data/utrs/cts_txs_celltype.Rds"
     params:
         min_cells=50
     resources:
