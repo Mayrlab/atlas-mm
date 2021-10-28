@@ -184,6 +184,22 @@ rule generate_lui_table:
     script:
         "scripts/generate_lui_table.R"
 
+rule generate_ipa_table:
+    input:
+        sce="data/sce/merged.txs.full_annot.Rds",
+        genes="data/utrs/utrome_genes_annotation.tsv"
+    params:
+        min_cells=50
+    output:
+        ipa="data/ipa/merged_ipa_cpc_pointestimates.tsv.gz",
+        n_cells="data/ipa/merged_ncells_expr.tsv"
+    conda:
+        "envs/bioc_3_11.yaml"
+    resources:
+        mem_mb=16000
+    script:
+        "scripts/generate_ipa_table.R"
+
 rule generate_gene_table:
     input:
         sce="data/sce/merged.genes.full_annot.Rds"
