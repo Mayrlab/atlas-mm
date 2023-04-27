@@ -25,7 +25,7 @@ if (interactive()) {
 ## Load Data
 ################################################################################
 
-df_utrs <- read_tsv(snakemake@input$utrs, col_types='ccccilllildidiicill')
+df_utrs <- read_tsv(snakemake@input$utrs, col_types='cccccilllildidiicill')
 
 ################################################################################
 ## Collapse to Genes
@@ -39,8 +39,9 @@ utr_lengths_str <- function (utr_length, idx) {
 
 
 df_genes_final <- df_utrs %>%
-    group_by(gene_id, gene_symbol, atlas.ncelltypes_gene, atlas.utr_type,
+    group_by(gene_id, gene_name, atlas.ncelltypes_gene, atlas.utr_type,
              atlas.n_utrs_no_ipa, is_blacklisted) %>%
+    arrange(utr_length) %>%
     summarize(is_consistent=all(is_consistent), has_ipa=any(is_ipa),
               utr_lengths_tandem=utr_lengths_str(utr_length, !is_ipa),
               utr_lengths_ipa=utr_lengths_str(utr_length, is_ipa),

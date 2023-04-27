@@ -30,7 +30,7 @@ rule merge_sces:
     wildcard_constraints:
         level="(genes|txs)"
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     resources:
         mem_mb=16000
     script:
@@ -46,9 +46,9 @@ rule compute_size_factors:
         max_sf=1.05,
         mrna_count=200000
     resources:
-        mem_mb=16000
+        mem_mb=24000
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     script:
         "scripts/compute_size_factors.R"
 
@@ -65,7 +65,7 @@ rule generate_utr_metadata:
     resources:
         mem_mb=16000
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     script:
         "scripts/generate_utr_metadata.R"
 
@@ -80,9 +80,9 @@ rule generate_utr_length_metadata:
         genes="data/utrs/genes_utr_metadata_lengths.tsv"
     resources:
         mem_mb=2000
-    threads: 20
+    threads: 24
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     script:
         "scripts/generate_utr_length_metadata.R"
 
@@ -93,7 +93,7 @@ rule clean_txs_annotation:
         tsv="data/utrs/utrome_txs_annotation.tsv",
         rds="data/utrs/utrome_txs_annotation.Rds"
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     script:
         "scripts/clean_txs_annotation.R"
         
@@ -104,7 +104,7 @@ rule clean_genes_annotation:
         tsv="data/utrs/utrome_genes_annotation.tsv",
         rds="data/utrs/utrome_genes_annotation.Rds"
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     script:
         "scripts/clean_genes_annotation.R"
         
@@ -120,7 +120,7 @@ rule annotate_txs_sce:
     resources:
         mem_mb=8000
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     script:
         "scripts/annotate_txs_sce.R"
 
@@ -134,7 +134,7 @@ rule annotate_txs_sce_all:
     resources:
         mem_mb=16000
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     script:
         "scripts/annotate_txs_sce_all.R"
 
@@ -150,7 +150,7 @@ rule annotate_genes_sce:
     resources:
         mem_mb=8000
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     script:
         "scripts/annotate_genes_sce.R"
 
@@ -164,7 +164,7 @@ rule annotate_sce_all:
     resources:
         mem_mb=16000
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     script:
         "scripts/annotate_genes_sce_all.R"
 
@@ -178,7 +178,7 @@ rule generate_lui_table:
         lui="data/lui/merged_lui_cpc_pointestimates.tsv.gz",
         n_cells="data/lui/merged_ncells_expr.tsv"
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     resources:
         mem_mb=16000
     script:
@@ -194,7 +194,7 @@ rule generate_ipa_table:
         ipa="data/ipa/merged_ipa_cpc_pointestimates.tsv.gz",
         n_cells="data/ipa/merged_ncells_expr.tsv"
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     resources:
         mem_mb=16000
     script:
@@ -207,7 +207,7 @@ rule generate_gene_table:
         cpc="data/lui/merged_gene_cpc_pointestimates.tsv.gz",
         tpm="data/lui/merged_gene_tpm_pointestimates.tsv.gz"
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     resources:
         mem_mb=16000
     script:
@@ -221,7 +221,7 @@ rule export_multiutr_genes:
         sym="data/utrs/genes_multiutr_symbols.txt",
         mgi="data/utrs/genes_multiutr_mgi.txt"
     conda:
-        "envs/bioc_3_11.yaml"
+        "envs/bioc_3_16.yaml"
     resources:
         mem_mb=4000
     script:

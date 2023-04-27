@@ -46,7 +46,7 @@ sce.mescs %<>% `[`(,sce.mescs$sample_id %in% c('mESC', 'MEF'))
 ## Tabula Muris
 colData(sce.tmuris) %<>%
     as.data.frame %>%
-    dplyr::rename(cell_id=cell, cell_type=cell_ontology_class, cluster=cluster.ids, sample=channel) %>%
+    dplyr::rename(cell_type=cell_ontology_class, cluster=cluster.ids, sample=channel) %>%
     mutate(age='young') %>%
     select('cell_id', 'tissue', 'cell_type', 'cluster', 'sample', 'age') %>%
     DataFrame()
@@ -64,8 +64,8 @@ colData(sce.brain) %<>%
 ## HSPCs
 colData(sce.hspcs) %<>%
     as.data.frame %>%
-    select('cell_id', 'clusters', 'sample', 'louvain_R') %>%
-    dplyr::rename(cell_type=clusters, cluster=louvain_R) %>%
+    select('cell_id', 'clusters', 'sample_id.x', 'louvain_R') %>%
+    dplyr::rename(cell_type=clusters, cluster=louvain_R, sample=sample_id.x) %>%
     mutate(tissue='Bone Marrow (LSK,LK)',
            age='young',
            cell_id=str_replace(cell_id, '^([ACGT]{16})_(.*)$', '\\2_\\1')) %>%
@@ -84,7 +84,12 @@ colData(sce.mescs) %<>%
     select('cell_id', 'tissue', 'cell_type', 'cluster', 'sample', 'age') %>%
     DataFrame()
 
+## combine SCEs
 sce <- cbind(sce.tmuris, sce.brain, sce.hspcs, sce.mescs)
 colnames(sce) <- sce$cell_id
 
+## filter unannotated cells
+sce %<>% `[`(,!is.na(.$cell_type))
+
+## export
 saveRDS(sce, snakemake@output$sce)

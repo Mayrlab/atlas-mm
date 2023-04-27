@@ -20,12 +20,12 @@ tibble.as.DataFrame <- function (tbl) {
 }
 
 ## Credit: https://stackoverflow.com/a/12649993/570918
-sdiv <- function(X, Y, names=dimnames(X)) {
+sdiv <- function(X, Y, names=dimnames(X), dims=dim(X)) {
     sX <- summary(X)
     sY <- summary(Y)
     sRes <- merge(sX, sY, by=c("i", "j"))
     sparseMatrix(i=sRes[,1], j=sRes[,2], x=sRes[,3]/sRes[,4],
-                 dimnames=names)
+                 dims=dims, dimnames=names)
 }
 
 dropInf <- function (M) {
@@ -39,7 +39,7 @@ if (interactive()) {
     Snakemake <- setClass("Snakemake", slots=c(input='list', output='list', params='list'))
     snakemake <- Snakemake(
         input=list(sce="data/sce/merged.txs.raw.Rds",
-                   ipa="data/ipa/adult.utrome.e3.t200.f0.999.w500.ipa.tsv"),
+                   ipa="/data/mayrc/data/mca/gff/utrome.e30.t5.gc25.pas3.f0.9999.w500.ipa.tsv"),
         output=list(n_cells="/fscratch/fanslerm/n_cells_genes.tsv",
                     utr="/fscratch/fanslerm/utr_metadata.tsv",
                     cts="/fscratch/fanslerm/cts_txs_celltype.Rds"),
@@ -47,15 +47,18 @@ if (interactive()) {
 }
 
 ## Load Data
+message("Loading SCE...")
 sce <- readRDS(snakemake@input$sce)
 
+message("Loading IPA table...")
 df.ipas <- read_tsv(snakemake@input$ipa, col_types='cc')
 
 ## Recompute UTR Info
+message("Computing UTR info...")
 rowData(sce) %<>%
     DataFrame.as.tibble() %>%
     mutate(counts.total=rowSums(counts(sce))) %>%
-    group_by(gene_symbol) %>%
+    group_by(gene_id) %>%
     mutate(counts.total.gene=sum(counts.total)) %>%
     mutate(utr.pct=counts.total/counts.total.gene,
            utr.rank=rank(desc(counts.total), ties.method="first")) %>%
@@ -73,13 +76,15 @@ rowData(sce) %<>%
 ################################################################################
 
 ## M: (genes) x (utrs)
+message("Creating M.genes...")
 gene_ids <- rowData(sce)$gene_id
 names(gene_ids) <- rownames(sce)
 M.genes <- gene_ids %>% fac2sparse()
 
-rowData(sce)["is_ipa"] <- rownames(sce) %in% df.ipas$tx_name
+rowData(sce)["is_ipa"] <- rownames(sce) %in% df.ipas$transcript_id
 
 ## M: (genes) x (utrs)
+message("Creating M.genes.no_ipa...")
 M.genes.no_ipa <- drop0(t(t(M.genes) * as.integer(!rowData(sce)$is_ipa)))
 
 ## Percent Usage without IPA
@@ -94,6 +99,7 @@ rowData(sce)["utr.count.total.pct10.no_ipa"] <- as.numeric(t(M.genes) %*% M.gene
 
 
 ## M: (cells) x (tissue, cell_type, age)
+message("Creating M.groups...")
 M.groups <- colData(sce)[,c('tissue', 'cell_type', 'age')] %>%
     as.data.frame() %>%
     mutate(group=paste(str_replace_all(tissue, "_", " "),
@@ -103,6 +109,7 @@ M.groups <- colData(sce)[,c('tissue', 'cell_type', 'age')] %>%
     t()
 
 ## Percent Usage across cell types
+message("Computing percentage usage across cell types...")
 ncells.genes.no_ipa.groups <- ((M.genes.no_ipa %*% counts(sce)) > 0) %*% M.groups
 valid.genes.no_ipa.groups <- drop0(ncells.genes.no_ipa.groups >= snakemake@params$min_cells)
 rowData(sce)["gene.ncelltypes.cells50.no_ipa"] <- (t(M.genes) %*% rowSums(valid.genes.no_ipa.groups)) %>%
@@ -129,22 +136,22 @@ rowData(sce)["utr.count.pct10.no_ipa"] <- t(M.genes) %*% M.genes.no_ipa %*%
 nzero.pct05 <- rowData(sce) %>%
     as.data.frame() %>%
     filter(!is.na(utr.count.pct05.no_ipa), utr.count.pct05.no_ipa == 0) %>%
-    pull(gene_symbol) %>% unique() %>% length()
+    pull(gene_id) %>% unique() %>% length()
 
 nzero.pct10 <- rowData(sce) %>%
     as.data.frame() %>%
     filter(!is.na(utr.count.pct10.no_ipa), utr.count.pct10.no_ipa == 0) %>%
-    pull(gene_symbol) %>% unique() %>% length()
+    pull(gene_id) %>% unique() %>% length()
 
 nnoexpr.pct05 <- rowData(sce) %>%
     as.data.frame() %>%
     filter(!is.na(utr.count.pct05.no_ipa), utr.count.pct05.no_ipa == 0, !expressed.gene) %>%
-    pull(gene_symbol) %>% unique() %>% length()
+    pull(gene_id) %>% unique() %>% length()
 
 nnoexpr.pct10 <- rowData(sce) %>%
     as.data.frame() %>%
     filter(!is.na(utr.count.pct10.no_ipa), utr.count.pct10.no_ipa == 0, !expressed.gene) %>%
-    pull(gene_symbol) %>% unique() %>% length()
+    pull(gene_id) %>% unique() %>% length()
 
 cat(sprintf("Found %i genes with no reads in non-IPA isoforms at 5%% threshold.\n", nzero.pct05))
 cat(sprintf("Of those, %i (%0.1f%%) have no gene expression.\n\n",
@@ -178,7 +185,7 @@ rowData(sce) %>%
                                  ifelse(utr.count.pct10.no_ipa == 1, 'single',
                                         utr.type.mca))) %>%
     dplyr::rename(utr.pct.total=utr.pct, utr.rank.total=utr.rank) %>%
-    select(transcript_id, gene_id, gene_symbol,
+    select(transcript_id, gene_id, gene_name,
            counts.total, counts.total.gene,
            utr.pct.total, utr.rank.total,
            expressed.tx, expressed.gene, is_ipa,
