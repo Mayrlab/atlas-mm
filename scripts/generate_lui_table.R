@@ -43,7 +43,7 @@ df_multiutrs <- rowData(sce) %>%
     filter(atlas.utr_type == 'multi',
            is_ipa == FALSE, is_blacklisted == FALSE,
            atlas.ncelltypes_gene >= 2) %>%
-    arrange(gene_symbol, utr_position)
+    arrange(gene_name, utr_position)
 
 cat(sprintf("Considering **%d genes**.\n",
             df_multiutrs %>% pull(gene_id) %>% unique() %>% length()))
@@ -83,7 +83,8 @@ cts_txs_celltypes <- assay(sce[idx_utrs,], 'normcounts') %*% M_cells_celltypes
 ncells_celltypes <- colSums(M_cells_celltypes)
 
 ## mean gene counts
-cpc_genes_celltypes <- M_genes_txs %*% cts_txs_celltypes %*% Diagonal(length(ncells_celltypes), 1/ncells_celltypes)
+cpc_genes_celltypes <- (M_genes_txs %*% cts_txs_celltypes %*% Diagonal(length(ncells_celltypes), 1/ncells_celltypes)) %>%
+    `colnames<-`(colnames(cts_txs_celltypes))
 
 ## number of cells in each cell type expressing a given gene
 ncells_genes_celltypes <- ((M_genes_txs %*% counts(sce[idx_utrs,])) > 0) %*% M_cells_celltypes
