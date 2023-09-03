@@ -17,7 +17,8 @@ rule all:
         expand("data/utrs/utrome_{level}_annotation.Rds",
                level=['genes', 'txs']),
         "data/lui/merged_lui_cpc_pointestimates.tsv.gz",
-        "data/lui/merged_gene_tpm_pointestimates.tsv.gz"
+        "data/lui/merged_gene_tpm_pointestimates.tsv.gz",
+        "data/lui/merged_tx_tpm_pointestimates.tsv.gz"
 
 rule merge_sces:
     input:
@@ -212,6 +213,19 @@ rule generate_gene_table:
         mem_mb=16000
     script:
         "scripts/generate_gene_table.R"
+
+rule generate_tx_table:
+    input:
+        sce="data/sce/merged.txs.full_annot.Rds"
+    output:
+        cpc="data/lui/merged_tx_cpc_pointestimates.tsv.gz",
+        tpm="data/lui/merged_tx_tpm_pointestimates.tsv.gz"
+    conda:
+        "envs/bioc_3_16.yaml"
+    resources:
+        mem_mb=16000
+    script:
+        "scripts/generate_tx_table.R"
 
 rule export_multiutr_genes:
     input:
