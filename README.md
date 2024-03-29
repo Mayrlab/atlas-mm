@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/210962231.svg)](https://zenodo.org/doi/10.5281/zenodo.10895351)
+
 # Mouse UTRome Atlas
 This pipeline merges multiple datasets to define an atlas of 3' UTRs. At its core is a tabulation of how many distinct cell types use a particular tandem (non-intronic) isoform at either 5% or 10% frequency. Genes that have more that two isoforms of this type are classified as multi-UTR genes.
 
