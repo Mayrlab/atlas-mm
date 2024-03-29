@@ -33,7 +33,7 @@ df_utrs <- read_tsv(snakemake@input$utrs, col_types='cccccilllildidiicill')
 
 utr_lengths_str <- function (utr_length, idx) {
     if (any(idx)) {
-        str_c(utr_length[idx], collapse=";")
+        str_flatten(utr_length[idx], collapse=";", na.rm=TRUE)
     } else { "" }
 }
 
